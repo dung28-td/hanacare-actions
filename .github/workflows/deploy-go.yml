@@ -1,0 +1,47 @@
+name: 'Deploy Go'
+
+on:
+  workflow_call:
+    inputs:
+      REPO_PATH:
+        required: true
+        type: string
+      SERVICE_NAME:
+        required: true
+        type: string
+
+    secrets:
+      HOST:
+        required: true
+      USERNAME:
+        required: true
+      PORT:
+        required: true
+      KEY:
+        required: true
+
+env:
+  REPO_PATH: ${{ inputs.REPO_PATH }}
+  SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
+  REF_NAME: ${{ github.ref_name }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          port: ${{ secrets.PORT }}
+          envs: REPO_PATH,SERVICE_NAME,REF_NAME
+          script_stop: true
+          script: |
+            cd $REPO_PATH
+            git fetch
+            git checkout --quiet $REF_NAME
+            git pull --quiet
+            /usr/local/go/bin/go build -tags=jsoniter -tags=nomsgpack main.go
+            sudo supervisorctl restart $SERVICE_NAME
